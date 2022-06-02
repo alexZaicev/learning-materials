@@ -1,4 +1,12 @@
-# Container fundamentals
+# Container fundamentals (LFS253)
+
+## Table of contents:
+- **[Virtualization fundamentals](#virtualization-fundamentals)**
+- **[Virtualization mechanisms](#virtualization-mechanisms)**
+- **[Container standards and runtimes](#container-standards-and-runtimes)**
+- **[Image operations](#image-operations)**
+- **[Container operations](#container-operations)**
+- **[Building container images](#building-container-images)**
 
 ## Virtualization fundamentals
 
@@ -116,9 +124,86 @@ $ sudo machinectl show DebianContainer
 $ sudo machinectl terminate DebianContainer
 ```
 
-## Container standard and runtimes
+## Container standards and runtimes
 
 The Open Container Initiative (OCI) - introduced in 2015 by Docker and others. `runC` is one of container runtimes implementing the OCI specification. Specifications:
 
-* The Runtime Specification defines how to run a "filesystem bundle" that is unpacked on disk. An OCI implementation would download and unpack an OCI image into an OCI Runtime filesystem bundle. Then, an OCI Runtime would run the OCI Runtime Bundle. 
-* The Image Specification helps with the development of compatible tools to ensure consistent container image conversion into containers.
+* The [Runtime Specification](https://github.com/opencontainers/runtime-spec) defines how to run a "filesystem bundle" that is unpacked on disk. An OCI implementation would download and unpack an OCI image into an OCI Runtime filesystem bundle. Then, an OCI Runtime would run the OCI Runtime Bundle. 
+* The [Image Specification](https://github.com/opencontainers/image-spec) helps with the development of compatible tools to ensure consistent container image conversion into containers.
+* The [Distribution Specification](https://github.com/opencontainers/distribution-spec) standardized how contianer images are distributed through image registries.
+
+The App container standard specifies the following:
+- App container image
+- App container pod
+- App container image discovery
+- App container executor
+
+A container runtime (guided by runtime specification) describes the configuration, execution environment and the lifecycle of the container. Role of the runtime is to provide an environment supporting basic operations with images and the runnig containers that are both configurable and consistent. This allows users to develop and test containers on any system accross all tiers (from dev to prod) with the same container behaviour.
+- **runC** - basic CLI tool that uses `libcontainer` runtime, provides a low-level container runtime, focused primarily on container execution. Simplicity of `runC` has its own limitation, such as (1) it does not expose an API, (2) does not provide container image management capabilities and (3) does not provide image download or integrity check capabilities. Since `runC` does not include a centralized daemon, it may be integrated with the Linux service manager - `systemd`.
+- **containerd** - container runtime supporting OCI container image and runtime specifications that uses `runC` as its low-level OCI runtime. `containerd` adds image pull/push operations, network interfaces and namespaces management operation that are missing from `runC`.
+- **Docker** - complex contianer development and management platforms that implements OCI specification and provides tools necessary to bundle applications into digitally signed OCI container images, to interact with container image registries, and to manage the containers lifecycle from creation to removal, and all of their dependencies in between. Docker consists of the following:
+  * Docker client - CLI tool allowing users o run `docker` commands against doker daemon. Docker client and daemon communicate through REST API, UNIX sockets or a network interface. 
+  * Docker daemon (`dockerd`) - responsible for building, running and distributing Docker containers. It can act alone or interact with other daemons to manage distributed Docker services across multiple Docker hosts. 
+- **Podman** - daemonless container engine, allowing users to develop, manage and run OCI containers and providing REST API service that allows containers to be launched on-demand by remote applications. Podman uses `libpod` library to support pods, containers, images, and volumes. It also uses `Conmon` allowing Podman to run in detached mode while still allowing user to attach containers.
+- **CRI-O** - is a minimal implementation of Container Runtime Interface (CRI) to enable the usage of any OCI compatible runtime with K8s (lightweight alternative to Docker runtime for K8s). It implements Container Network Interface (CNI) for networking and support CNI plugins, supports container security that is provided by several core Linux features such as SELinux, capabilities and seccomp.
+- **Kata** - runtime aiming for a secure environment built of container-like lightweight Virtual Machines. Security is achieved through dedicated kernels that isolate the network, memory, and I/O, without sacrificing performance. Although a simple solution for an environment running containers, Kata Containers support OCI containers and integrate with the Kubernetes CRI.
+
+## Image operations
+
+A container image is a template for a container that includes configuration options and runtime settings to guide the container's behavior at runtime. Container image building tools may use various methods of image building that use a specific configuration file (e.g. Docker is using `Dockerfile`, while Podman may use `Containerfile` or `Dockerfile`). The storage of container image follows a layered approach meaning that any additional features will be added on top of another, while the base image data remains instact. This also avoids data duplication, where only the latest layer’s changes are being saved on the disk and the rest of the bottom level layers are just referenced, and it speeds up the image build process by caching each build step.
+- `runC` runtime runs containers bundled in the OCI format, based on JSON configuration (either default or manually generated). It provides limited set of operations such as building the OCI image with all the necessary files for creation and running the container. 
+- `Docker` is feature-rich and allows us to perform direct operations to manage container images as well as more complex operation to build and configure container images. `Dockerfile` is the key file containing a set of instruction that are interpreted by Docker daemon when building the image. 
+
+## Container operations
+
+A container is a process running on the host system, started by container runtime from a container image. The container is an isolated environment that encapsulate running application, and it runs based on configuration defined in the container image.
+
+At runtime, virtualization features available at the kernel level are attached to the container process to help manage various aspects of the container’s virtual environment. Namespaces virtualize the container process’s PID, network, root, and users. Cgroups help set resource usage limits the container process can consume on the host system, and security contexts enforce permissions the container process has on the host system.
+
+## Building container images
+
+Bellow is the list of build-time instructions for Dockerfile:
+
+- `FROM` - initializes a new build stage and defines the base image used to build our resulting image. Dockerfile must start with this instruction, but it may be preceded only by `ARG` instructions to define arguments to be used by subsequent `FROM` instructions. Multiple `FROM` instructions can be found in Dockerfile.
+- `ARG` - instruction may be placed before `FROM`, or after it. When it is found before `FROM`, it is considered outside of the build stage, and its value cannot be used in any instruction after `FROM`. However, the default value of an `ARG` declared before the first `FROM` can be invoked with an `ARG` instruction followed by the `ARG` name and no value. When the `​ARG​` instruction is declared, we can pass a variable at build time.
+- `RUN` - instruction is used to run commands inside the intermediate container created from the base image during the build process, and commit the results as a new image. `RUN` may be used in both shell and exec forms. In shell form the command is run by default in a shell such as /bin/sh -c in Linux or cmd /S /C in Windows. However, the shell can be modified by passing a desired shell, or with the SHELL command.
+- `LABEL` - adds metadata to the resulting image as key-value pair.
+- `EXPOSE` - instruction defines network ports we want to open from the container, for external entities to connect with the container on those exposed ports.
+- `COPY` - instruction allows content to be copied from our build context to the intermediate container which would get committed to create the resulting image.
+- `ADD` - similar to `COPY`, but it provides more features, such as accepting a URL for source, and accepting a tar file as source which is extracted at destination.
+- `WORKDIR` - instruction sets the working directory for any `RUN`​, `CMD`, `ENTRYPOINT`, `COPY` and `ADD` instructions that follow it in the Dockerfile.
+- `ENV` - instruction sets the environment variables inside the container.
+- `VOLUME` - instruction is used to create mount point and mount external storage.
+- `USER` - instruction sets the user name or UID of the resulting image for any subsequent ​RUN​, ​CMD and ENTRYPOINT​ instructions that follow it in the Dockerfile.
+- `ONBUILD` - defines instructions to be executed at a later time, when the resulting image from the current build process becomes the base image of any other build.
+```Dockerfile
+ONBUILD <INSTRUCTION>
+
+ONBUILD RUN pip install docker --upgrade
+
+# For example, let's take the image created from the ​ Dockerfile​ which has the instruction lfstudent/python:onbuild​ . This image becomes the base image in ​ Dockerfile​ , like the following:
+FROM lfstudent/python:onbuild
+
+#...
+# Then, while creating the image, we would see this message:
+# Step 1 : FROM lfstudent/python:onbuild
+# Executing 1 build trigger...
+# Step 1 : RUN pip install docker --upgrade
+# ---> Running in c5503d7c1475
+...
+```
+- `STOPSIGNAL` - instruction allows us to set a system call signal that will be sent to a container to exit, such as 9, SIGNAME, or SIGKILL.
+- `HEALTHCHECK` - tt times, while our container is running, the application inside may have crashed. Ideally, a container with such behavior should be stopped. To prevent a container from reaching that state, application readiness and liveliness are defined with the `HEALTHCHECK​` instruction.
+- `SHELL` - define a new default shell for commands that run in Shell form​, if the defaults are not desired (default in Linux is ​ /bin/sh -c, while in Windows is ​ cmd /S /C​. With the​ SHELL​ instruction we may change the default shell used to run commands in shell form.
+
+Bellow is the list of run-time instructions for Dockerfile:
+
+- `CMD` - instruction executed when the container is started from the resulting image. There can only be one `CMD​` instruction in a Dockerfile​. If there are more than one `CMD​` instructions, then only the last one would take effect. The `CMD​` instruction provides defaults to the container, which get executed from the resulting image. `CMD` is used in three forms:
+  - Shell form: `CMD` command param1 param2
+  - Exec form (preferred): `CMD` ["executable","param1","param2"]
+  - As default parameters to ENTRYPOINT - `CMD` ["param1","param2"]
+- `ENTRYPOINT` - similar to `CMD​`, `ENTRYPOINT​` is also a runtime instruction. But the executable/command provided during the build time cannot be overridden at runtime. Although we can change the arguments to it, whatever is passed after the executable/command, is considered an argument to the executable/command. There can only be one `ENTRYPOINT​` instruction. It is used in two forms:
+  - Shell form: `ENTRYPOINT` command param1 param2
+  - Exec form: `ENTRYPOINT` ["executable", "param1", "param2"]
+
+  `CMD​` can be used in conjunction with `ENTRYPOINT​`, but in that case, `CMD​` provides the default arguments to `ENTRYPOINT`.
