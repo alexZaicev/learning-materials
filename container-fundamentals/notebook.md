@@ -8,6 +8,7 @@
 - **[Container operations](#container-operations)**
 - **[Building container images](#building-container-images)**
 - **[Container networking](#container-networking)**
+- **[Container storage](#container-storage)**
 
 ## Virtualization fundamentals
 
@@ -260,3 +261,10 @@ The responsibility of the plugin is to add a container to a network based on spe
 - **Internal Mode**: This mode isolates overlay network in order to restrict containers access to the outside world.
 - **Ingress Mode**: This mode targets the networking of swarms and implements routing-mesh accross the host of the swarm cluster. A single ingress can be defined and it cannot be removed for as long as services are using it.
 
+## Container storage
+
+The [Copy-on-Write (CoW strategy)](https://docs.docker.com/storage/storagedriver/#the-copy-on-write-cow-strategy) is a strategy of sharing and copying files for maximum efficiency. In UnionFS CoW allows users to "indirectly" modify the content of files available to the running container from the base container image storage layer. While the container image files are Read-Only, when a user attempts to modify such a file, no errors or mechanisms will prevent the user from doing so. Instead, the base container image file is copied and saved on the ephemeral storage layer of the container and the user is allowed to make changes to the new copy of the file. In essence, a copy of a file is being saved when a user attempts to edit a Read-Only file of the base container image, all while the base container image file remains intact.
+
+**Ephemeral data** is a volatile data needed for a very short period of time that does not bring any harm to the business when lost. Data stored on ephemeral storage is defined within the scope of the container and is purged when container is terminated. 
+
+**Persistent data** is a critical data that has to be stored in a location that provides data resilience. It's recommended that this type of data is stored on external peristent volume mounts managed from the Docker CLI for easy backup and migration, portability, and extended functionality. Persistent volumes are not managed by UnionFS, aren't defined in the scope of the container, and don't get deleted together with the container.
