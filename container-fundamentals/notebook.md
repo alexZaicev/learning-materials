@@ -9,6 +9,7 @@
 - **[Building container images](#building-container-images)**
 - **[Container networking](#container-networking)**
 - **[Container storage](#container-storage)**
+- **[Runtime and containers security](#runtime-and-containers-security)**
 
 ## Virtualization fundamentals
 
@@ -268,3 +269,25 @@ The [Copy-on-Write (CoW strategy)](https://docs.docker.com/storage/storagedriver
 **Ephemeral data** is a volatile data needed for a very short period of time that does not bring any harm to the business when lost. Data stored on ephemeral storage is defined within the scope of the container and is purged when container is terminated. 
 
 **Persistent data** is a critical data that has to be stored in a location that provides data resilience. It's recommended that this type of data is stored on external peristent volume mounts managed from the Docker CLI for easy backup and migration, portability, and extended functionality. Persistent volumes are not managed by UnionFS, aren't defined in the scope of the container, and don't get deleted together with the container.
+
+## Runtime and containers security
+
+### Securing the environment
+Before we actually dive into runtime and container security it's worth mentioning that security begins by securing the running environment first: OS, network, storage etc.
+
+### Securing the Container Runtime
+Running container processes inherit their permissions from the user who is running the container engine, thus it's recommended that containers are run with non-root users. 
+
+### Securing the Client Access
+Client security is another pain point, however, Docker allows users to secure access to the Docker daemon socket through multiple methods. A popular method is via SSH, while a more complex method is via TLS over HTTPS. Docker client requests can be secured by default ensuring that every call is verified. Daemon and Client modes also allow for client authentication mechanism configuration, in addition to a secure Docker port configuration option.
+
+### Running Secure Container Images
+Ensuring that we deploy containers from trusted images is another important security aspect. Luckily, Docker provides signature verification that ensures only signed images are run as containers by the runtime.
+
+### Secure Containers
+Despite the debate happening over rooted vs non-rooted mode, there is a solution the removes that security risk. **capabilities** is a complex method that removes the need for root access of a container process with a controlled and limited root access that can be managed and set at a very granular level. The benefit of capabilities is that the container process will only receive the needed amount of privileges over the resources of the host that are critical for the container’s operations. All other resources will be accessed as a regular user with unprivileged restricted permissions.
+
+### Security Tools
+Container processes may be secured by assigning AppArmor profiles to them that restrict specific usage of the tools.
+
+Another layer of container process security can be protected with Seccomp. Secure computing is a Linux kernel feature designed to restrict the access of a container process over host resources. Seccomp profiles can allow or block system calls that may modify kernel modules, kernel memory, kernel I/O, modify namespaces, etc. Both Seccomp and capabilities are equally complex and granular approaches, and a significant amount of functional overlap can be observed.
