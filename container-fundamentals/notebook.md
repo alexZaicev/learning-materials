@@ -10,6 +10,7 @@
 - **[Container networking](#container-networking)**
 - **[Container storage](#container-storage)**
 - **[Runtime and containers security](#runtime-and-containers-security)**
+- **[Docker best practices](#docker-best-practices)**
 
 ## Virtualization fundamentals
 
@@ -291,3 +292,10 @@ Despite the debate happening over rooted vs non-rooted mode, there is a solution
 Container processes may be secured by assigning AppArmor profiles to them that restrict specific usage of the tools.
 
 Another layer of container process security can be protected with Seccomp. Secure computing is a Linux kernel feature designed to restrict the access of a container process over host resources. Seccomp profiles can allow or block system calls that may modify kernel modules, kernel memory, kernel I/O, modify namespaces, etc. Both Seccomp and capabilities are equally complex and granular approaches, and a significant amount of functional overlap can be observed.
+
+## Docker best practices
+
+- Avoid squashing images as this results in a single layer image that does not share any layers that were merged together (e.g. when pushing build images, unsquashed will only send unique layers, while squashed will send the whole image).
+- Compose your `Dockerfile` in such a way that upon building the image, Docker would speed up the process with cached layers (e.g. commands that will make image layers unique on every build should be moved to very bottom).
+- Upon installing Linux dependencies use `apt-get install --no-install-recommends`. This will ensure that you are getting only dependencies that you requested.
+- Use multi-stage builds to reduce the size of your image (IMPORTANT when building images for production)
