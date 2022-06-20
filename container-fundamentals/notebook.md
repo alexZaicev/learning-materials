@@ -7,6 +7,7 @@
 - **[Image operations](#image-operations)**
 - **[Container operations](#container-operations)**
 - **[Building container images](#building-container-images)**
+- **[Container networking](#container-networking)**
 
 ## Virtualization fundamentals
 
@@ -207,3 +208,55 @@ Bellow is the list of run-time instructions for Dockerfile:
   - Exec form: `ENTRYPOINT` ["executable", "param1", "param2"]
 
   `CMD​` can be used in conjunction with `ENTRYPOINT​`, but in that case, `CMD​` provides the default arguments to `ENTRYPOINT`.
+
+## Container networking
+
+### Container Network Model (CNM)
+
+![CNM Drivers](./../resources/img/Chart_Container-Network-Model-Drivers.png)
+
+Libnetwork is the canonical implementation of the CNM specification. Libnetwork provides an interface between the Docker daemon and network drivers. The network controller is responsible for pairing a driver to a network. Each driver is responsible for managing the network it owns, including services provided to that network like IPAM. With one driver per network, multiple drivers can be used concurrently with containers connected to multiple networks. Drivers are defined as being either native (built-in to libnetwork or Docker supported) or remote (third party plugins). The native drivers are none, bridge, overlay and MACvlan. Remote drivers may bring any number of capabilities. Drivers are also defined as having a local scope (single host) or global scope (multi-host).
+
+![CNM Interfacing](./../resources/img/Chart_Container-Network-Model-Interfacing.png)
+
+- **Network Sandbox**: Essentially the networking stack within a container, it is an isolated environment to contain a container’s network configuration.
+- **Endpoint**: A network interface that typically comes in pairs. One end of the pair sits in the network sandbox, while the other sits in a designated network. Endpoints join exactly one network, and multiple endpoints can exist within a single network sandbox.
+- **Network**: A group of endpoints. A network is a uniquely identifiable group of endpoints that can communicate with each other.
+
+CNM provides an ability to sepcify user-defined metadata as **options** and **labels** that are passed between libnetwork and drivers. Labels are powerlful in that the runtime may instruct driver behavior.
+
+### Container Network Interface (CNI)
+
+![CNI Drivers](./../resources/img/Chart_Container-Network-Interface-Drivers.png)
+
+CNI was created as a minimal specification, built alongside a number of network vendor engineers to be a simple contract between the container runtime and network plugins. A JSON schema defines the expected input and output from CNI network plugins.
+
+Multiple plugins may be run at one time with a container joining networks driven by different plugins. Networks are described in configuration files, in JSON format, and instantiated as new namespaces when CNI plugins are invoked. CNI plugins support two commands to add and remove container network interfaces to and from networks. Add gets invoked by the container runtime when it creates a container. Delete gets invoked by the container runtime when it tears down a container instance.
+
+CNI supported plugin groups: 
+- **Main** - consists of bridge interface, ipvlan, loopback, macvlan (create a new MAC address), ptp, vlan and host-device. The main group consists of a few Windows-specific drivers such as win-bridge and win-overlay.
+- **IPAM** - consists of dhcp (making DHCP requests for the container), host-local (maintains database of allocated IP addresses) and static.
+- **Meta** - consists of flannel compatability, sysctl tuning, portmap (from host address space to the container), bandwidth limitation, sbr (source-based routing configuration) and firewall.
+
+The responsibility of the plugin is to add a container to a network based on specified parameters such as the container ID and network configuration options, to delete the container form the network, and to check the status of a container's networking. 
+
+### Differences between CNM and CNI
+
+| CNM   | CNI   |
+| ------|-------|
+| Does not provide network drivers access to the container's network namespace | Provides drivers with access to the container network namespace |
+| Support only Docker runtime engine only | Supports integration with third party IPAM and can be used with any container runtime |
+
+### Docker networking drivers
+
+- **Bridge**: The default network type that Docker containers attach to is the bridge network, implemented by the bridge driver. The main roles of a bridge network are to isolate the container network from the host system network, and to act as a DHCP server and assign unique IP addresses to containers as they are running attached to the bridge. This is a useful feature when containers of an application need to talk to each other while they all run on the same host system. Other features of bridge networks depend whether the bridge is default or user-defined. Most often, a user-defined bridge presents advantages over the default bridge, such as better traffic isolation, automatic DNS resolution, on-the-fly container connection/disconnection to and from the network, advanced and flexible configuration options, and even sharing of environment variables between containers.
+- **Host**: The host network driver option, as opposed to the bridge, eliminates the network isolation between the container and the host system by allowing the container to directly access the host network. In addition, it may help with performance optimization by eliminating the need for Network Address Translation (NAT) or proxying since the container ports are automatically published and available as host ports.
+- **Overlay**: It is the network type that spans multiple hosts, typically part of a cluster, allowing the containers' traffic to be routed between hosts as containers or services from one host attempt to talk to others running on another host in the cluster.
+- **Macvlan**: The macvlan network driver allows a user to change the appearance of a container on the physical network. A container may appear as a physical device with its own MAC address on the network, thus enabling the container to be directly connected to the physical network instead of having its traffic routed through the host network.
+- **None**: The none driver option for container networking disables the networking of a container while allowing the very same container to use a custom third-party network driver, if needed, to implement its networking requirements.
+
+### Docker Network Modes
+
+- **Internal Mode**: This mode isolates overlay network in order to restrict containers access to the outside world.
+- **Ingress Mode**: This mode targets the networking of swarms and implements routing-mesh accross the host of the swarm cluster. A single ingress can be defined and it cannot be removed for as long as services are using it.
+
