@@ -1,6 +1,7 @@
 # Kubernetes fundamentals (LFS258)
 
 ## Table of contents:
+
 - **[Basics of K8s](#basics-of-k8s)**
 - **[APIs and Access](#apis-and-access)**
 
@@ -130,4 +131,4 @@ $> kubectl delete pod simple-pod
 - `kube-public` - namespace that is available for everybody (including unauthenticated users), containing general information.
 - `kube-system` - namespace containing infrastructural pods.
 
-**Note:** If you would like to see all resource on the system you can run the following `kubectl get --all-namespaces pods` 
+**Note:** If you would like to see all resource on the system you can run the following `kubectl get --all-namespaces pods`
