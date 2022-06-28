@@ -216,11 +216,11 @@ Bellow is the list of run-time instructions for Dockerfile:
 
 ### Container Network Model (CNM)
 
-![CNM Drivers](./../resources/img/Chart_Container-Network-Model-Drivers.png)
+![CNM Drivers](resources/img/Chart_Container-Network-Model-Drivers.png)
 
 Libnetwork is the canonical implementation of the CNM specification. Libnetwork provides an interface between the Docker daemon and network drivers. The network controller is responsible for pairing a driver to a network. Each driver is responsible for managing the network it owns, including services provided to that network like IPAM. With one driver per network, multiple drivers can be used concurrently with containers connected to multiple networks. Drivers are defined as being either native (built-in to libnetwork or Docker supported) or remote (third party plugins). The native drivers are none, bridge, overlay and MACvlan. Remote drivers may bring any number of capabilities. Drivers are also defined as having a local scope (single host) or global scope (multi-host).
 
-![CNM Interfacing](./../resources/img/Chart_Container-Network-Model-Interfacing.png)
+![CNM Interfacing](resources/img/Chart_Container-Network-Model-Interfacing.png)
 
 - **Network Sandbox**: Essentially the networking stack within a container, it is an isolated environment to contain a container’s network configuration.
 - **Endpoint**: A network interface that typically comes in pairs. One end of the pair sits in the network sandbox, while the other sits in a designated network. Endpoints join exactly one network, and multiple endpoints can exist within a single network sandbox.
@@ -230,7 +230,7 @@ CNM provides an ability to sepcify user-defined metadata as **options** and **la
 
 ### Container Network Interface (CNI)
 
-![CNI Drivers](./../resources/img/Chart_Container-Network-Interface-Drivers.png)
+![CNI Drivers](resources/img/Chart_Container-Network-Interface-Drivers.png)
 
 CNI was created as a minimal specification, built alongside a number of network vendor engineers to be a simple contract between the container runtime and network plugins. A JSON schema defines the expected input and output from CNI network plugins.
 
