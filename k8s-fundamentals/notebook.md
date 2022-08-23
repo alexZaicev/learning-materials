@@ -1,5 +1,7 @@
 # Kubernetes fundamentals (LFS258)
 
+---
+
 ## Table of contents:
 
 - **[Basics of K8s](#basics-of-k8s)**
@@ -9,6 +11,7 @@
 - **[Volumes and Data](#volumes-and-data)**
 - **[Services](#services)**
 - **[Helm](#helm)**
+- **[Ingress](#ingress)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -52,7 +55,6 @@ K8s consists of control plane (CP) and worker nodes, where CP runs an API servic
 - **Services, Load balancing and networking:**
   - **Service** - abstraction that defines a logical set of pods and a policy by which to access them. It has two main functionalities (1) permanent IP address (static) that can be used instead of pod IP address, (2) load balancer. Because lifecycle of pod and service is not connected, if a pod dies, service will still remain active.
   - **Ingress** - an API object that manages external access to the services in a cluster (forwards external requests to internal services).
-      ![Ingress](resources/img/ingress.svg)
 - **Storage:**
   - **Volumes** - abstraction serving as a data persistence for pods that attaches storage on local machine or outside the cluster.
 - **Configuration:**
@@ -341,4 +343,58 @@ data:
     mariadb-password: {{ default "" .Values.mariadbPassword | b64enc | quote }}
 ```
 
-For more information on Helm see this module -> TODO add link to local module resource
+For more information on Helm see [this module notebook](../helm/notebook.md).
+
+## Ingress 
+
+---
+
+Ingress exposes HTTP and HTTPS routes from outside the cluster to services within the cluster. Traffic routing is controlled by rules defined on the Ingress resource.
+
+Below is a simple example where an Ingress sends all its traffic to one Service.
+
+![Ingress](resources/img/ingress.svg)
+
+An Ingress may be configured to give Services externally-reachable URLs, load balance traffic, terminate SSL/TLS, and offer name-based virtual hosting. An Ingress controller is responsible for fulfilling the Ingress, usually with a load balancer, though it may also configure your edge router or additional frontends to help handle the traffic.
+
+An Ingress does not expose arbitrary ports or protocols. Exposing services other than HTTP and HTTPS to the internet typically uses a service of type `Service.Type=NodePort` or `Service.Type=LoadBalancer`.
+
+The below Yaml specification creates a typical Ingress object.
+```yaml
+apiVersion: networking.k8s.io/v1beta1 
+kind: Ingress 
+metadata:
+name: ghost
+spec:
+rules:
+  - host: ghost.192.168.99.100.nip.io
+    http:
+      paths:
+      - backend:
+          service
+            name: ghost
+            port:
+              number: 2368 
+        path: /
+        pathType: ImplementationSpecific
+```
+
+### Ingress Controller
+
+An Ingress Controller is a daemon running in a Pod which watches the `/ingresses` endpoint on the API server, which is found under the `networking.k8s.io/v1beta1` group for new objects. When a new endpoint is created, the daemon uses the configured set of rules to allow inbound connection to a service, most often HTTP traffic. This allows easy access to a service through an edge router to Pods, regardless of where the Pod is deployed.
+
+Multiple Ingress Controllers can be deployed. Traffic should use annotations to select the proper controller. The lack of a matching annotation will cause every controller to attempt to satisfy the ingress traffic.
+
+### Proxies
+
+For more complex connections or resources such as service discovery, rate limiting, traffic management and advanced metrics, you may want to implement a service mesh.
+
+A service mesh consists of edge and embedded proxies communicating with each other and handling traffic based on rules from a control plane. Various options are available, including `Envoy`, `Istio`, and `linkerd`.
+
+![Istio service mesh](resources/img/istio_service_mesh.png)
+
+- `Envoy` - is a modular and extensible proxy favored due to its modular construction, open architecture and dedication to remaining unmonetized. It is often used as a data plane under other tools of a service mesh.
+- `Istio` - is a powerful tool set which leverages Envoy proxies via a multi-component control plane. It is built to be platform-independent, and it can be used to make the service mesh flexible and feature-filled.
+- `linkerd` is another service mesh, purposely built to be easy to deploy, fast, and ultralight.
+
+For more information on Service Mesh see [this module notebook](../service-mesh/notebook.md).
