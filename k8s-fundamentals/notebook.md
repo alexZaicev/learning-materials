@@ -12,6 +12,7 @@
 - **[Services](#services)**
 - **[Helm](#helm)**
 - **[Ingress](#ingress)**
+- **[Scheduling](#scheduling)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -398,3 +399,46 @@ A service mesh consists of edge and embedded proxies communicating with each oth
 - `linkerd` is another service mesh, purposely built to be easy to deploy, fast, and ultralight.
 
 For more information on Service Mesh see [this module notebook](../service-mesh/notebook.md).
+
+## Scheduling
+
+---
+
+A scheduler watches for newly created Pods that have no Node assigned. For every Pod that the scheduler discovers, the scheduler becomes responsible for finding the best Node for that Pod to run on. The scheduler reaches this placement decision taking into account the scheduling principles described below.
+
+The `kube-scheduler` determines which nodes will run a Pod, using a topology-aware algorithm. Users can set the priority of a pod, which will allow preemption of lower priority pods. The eviction of lower priority pods would then allow the higher priority pod to be scheduled. The scheduler tracks the set of nodes in your cluster, filters them based on a set of predicates, then uses priority functions to score or determine on which node each Pod should be scheduled. The Pod specification as part of a request is sent to the kubelet on the node for creation.
+
+The `kube-scheduler` selects a node for the pod in 2-step operation:
+1. Filtering (Predicates) - The filtering step finds the set of Nodes where it's feasible to schedule the Pod. For example, the `PodFitsResources` filter checks whether a candidate Node has enough available resource to meet a Pod's specific resource requests. After this step, the node list contains any suitable Nodes; often, there will be more than one. If the list is empty, that Pod isn't (yet) schedulable.
+2. Scoring (Priorities) - In the scoring step, the scheduler ranks the remaining nodes to choose the most suitable Pod placement. The scheduler assigns a score to each Node that survived filtering, basing this score on the active scoring rules.
+
+Finally, `kube-scheduler` assigns the Pod to the Node with the highest ranking. If there is more than one node with equal scores, `kube-scheduler` selects one of these at random.
+
+There are two supported ways to configure the filtering and scoring behavior of the scheduler:
+1. Scheduling Policies allow you to configure Predicates for filtering and Priorities for scoring. 
+2. Scheduling Profiles allow you to configure Plugins that implement different scheduling stages, including: `QueueSort`, `Filter`, `Score`, `Bind`, `Reserve`, `Permit`, and others. You can also configure the kube-scheduler to run different profiles
+
+**Note:** That custom scheduler can be deployed, if default scheduler does not meet your business requirements.
+
+### Pod Affinity Rules
+
+Pods which may communicate a lot or share data may operate best if co-located, which would be a form of affinity. For greater fault tolerance, you may want Pods to be as separate as possible, which would be anti-affinity. These settings are used by the scheduler based on the labels of Pods that are already running. As a result, the scheduler must interrogate each node and track the labels of running Pods. Clusters larger than several hundred nodes may see significant performance loss. Pod affinity rules use `In`, `NotIn`, `Exists`, and `DoesNotExist` operators.
+- `requiredDuringSchedulingIgnoredDuringExecution` - means that the Pod will not be scheduled on a node unless the following operator is true. If the operator changes to become false in the future, the Pod will continue to run. This could be seen as a hard rule.
+- `preferredDuringSchedulingIgnoredDuringExecution` - will choose a node with the desired setting before those without. If no properly-labeled nodes are available, the Pod will execute anyway. This is more of a soft setting, which declares a preference instead of a requirement.
+- `podAffinity` - the scheduler will try to schedule Pods together.
+- `podAntiAffinity` - would cause the scheduler to keep Pods on different nodes.
+
+### Taints
+
+A node with a particular taint will repel Pods without tolerations for that taint. A taint is expressed as `key=value:effect`. The key and the value are created by the administrator.
+
+Ways to schedule a pod:
+- `NoSchedule` - the scheduler will not schedule a Pod on this node, unless the Pod has this toleration. Existing Pods continue to run, regardless of toleration.
+- `PreferNoSchedule` - the scheduler will avoid using this node, unless there are no untainted nodes for the Pods toleration. Existing Pods are unaffected.
+- `NoExecute` - this taint will cause existing Pods to be evacuated and no future Pods scheduled. Should an existing Pod have a toleration, it will continue to run. If the Pod `tolerationSeconds` is set, they will remain for that many seconds, then be evicted. Certain node issues will cause the kubelet to add 300 second tolerations to avoid unnecessary evictions.
+
+### Tolerations
+
+Setting tolerations on a node are used to schedule Pods on tainted nodes. This provides an easy way to avoid Pods using the node. Only those with a particular toleration would be scheduled.
+
+An operator can be included in a Pod specification, defaulting to `Equal` if not declared. The use of the operator `Equal` requires a value to match. The `Exists` operator should not be specified. If an empty key uses the `Exists` operator, it will tolerate every taint. If there is no effect, but a key and operator are declared, all effects are matched with the declared key.
