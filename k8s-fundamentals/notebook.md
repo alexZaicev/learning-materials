@@ -8,6 +8,7 @@
 - **[Managing state with deployment](#managing-state-with-deployment)**
 - **[Volumes and Data](#volumes-and-data)**
 - **[Services](#services)**
+- **[Helm](#helm)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -75,14 +76,6 @@ The graphic shows a pod with two containers, A and B, and two data volumes, 1 an
 Even though there are two containers, they share the same namespace and the same IP address, which would be configured by kubectl working with kube-proxy. The IP address is assigned before the containers are started, and will be inserted into the containers. The container will have an interface like eth0@tun10. This IP is set for the life of the pod.
 
 The endpoint is created at the same time as the service. Note that it uses the pod IP address, but also includes a port. The service connects network traffic from a node high-number port to the endpoint using iptables with ipvs on the way. The kube-controller-manager handles the watch loops to monitor the need for endpoints and services, as well as any updates or deletions.
-
-### Services
-
-![Services](resources/img/services.png)
-
-This graphic shows a pod with a primary container, App, with an optional sidecar Logger. Also seen is the pause container, which is used by the cluster to reserve the IP address in the namespace prior to starting the other pods. This container is not seen from within Kubernetes, but can be seen using docker and crictl.
-
-This graphic also shows a ClusterIP which is used to connect inside the cluster, not the IP of the cluster. As the graphic shows, this can be used to connect to a NodePort for outside the cluster, an IngressController or proxy, or another ”backend” pod or pods.
 
 ## Simple Pod
 
@@ -290,11 +283,62 @@ The controllers of services and endpoints run inside the `kube-controller-manage
 
 An example of a multi-container pod with two services sending traffic to its ephemeral IP can be seen in the diagram below. The diagram also shows an ingress controller, which would typically be represented as a pod, but has a different shape to show that it is listening to a high numbered port of an interface and is sending traffic to a service. Typically, the service the ingress controller sends traffic to would be a ClusterIP, but the diagram shows that it would be possible to send traffic to a NodePort or a LoadBalancer.
 
+This graphic shows a pod with a primary container, App, with an optional sidecar Logger. Also seen is the pause container, which is used by the cluster to reserve the IP address in the namespace prior to starting the other pods. This container is not seen from within Kubernetes, but can be seen using docker and `crictl`.
+
 ![Cluster networking](resources/img/cluster_networking.png)
 
 ### DNS
 
 The use of `CoreDNS` allows for a great amount of flexibility. Once the container starts, it will run a Server for the zones it has been configured to serve. Then, each server can load one or more plugin chains to provide other functionality. As with other microservices, clients would it access using a service, `kube-dns`.
 
+## Helm
 
+---
 
+Helm helps to manage Kubernetes application via Helm charts that are used to define, install and upgrade even the most complex application.
+
+A typical containerized application will have several manifests. Manifests for deployments, services, and configMaps. You will probably also create some secrets, Ingress, and other objects. Each of these will need a manifest. With Helm, you can package all those manifests and make them available as a single tarball. You can put the tarball in a repository, search that repository, discover an application, and then, with a single command, deploy and start the entire application, one or more times.
+
+### Structure
+
+The below directory structure is the most typical setup for simple application (in this example MariaDB).
+
+```
+├── Chart.yaml
+├── README.md
+├── templates
+|   ├── NOTES.txt
+|   ├── _helpers.tpl
+|   ├── configmap.yaml
+|   ├── deployment.yaml
+|   ├── pvc.yaml
+|   ├── secrets.yaml
+|   └── svc.yaml
+└── values.yaml
+```
+
+- The `Chart.yaml` file contains some metadata about the Chart, like its name, version, keywords, and so on, in this case, for MariaDB.
+- The `values.yaml` file contains keys and values that are used to generate the release in your cluster. These values are replaced in the resource manifests using the Go templating syntax.
+- The `templates` directory contains the resource manifests that make up this MariaDB application.
+
+### Templates
+
+The below Yaml specification uses Go templating syntax to insert value form `values.yaml` to create `Secret` object.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: {{ template "fullname" . }}
+    labels:
+        app: {{ template "fullname" . }}
+        chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+        release: "{{ .Release.Name }}"
+        heritage: "{{ .Release.Service }}"
+type: Opaque
+data:
+    mariadb-root-password: {{ default "" .Values.mariadbRootPassword | b64enc | quote }}
+    mariadb-password: {{ default "" .Values.mariadbPassword | b64enc | quote }}
+```
+
+For more information on Helm see this module -> TODO add link to local module resource
