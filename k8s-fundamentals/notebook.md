@@ -15,6 +15,7 @@
 - **[Scheduling](#scheduling)**
 - **[Logging and Troubleshooting](#logging-and-troubleshooting)**
 - **[Custom Resource Definition](#custom-resource-definition)**
+- **[Security](#security)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -547,3 +548,109 @@ The aggregation layer is different from Custom Resources, which are a way to mak
 The aggregation layer runs in-process with the `kube-apiserver`. Until an extension resource is registered, the aggregation layer will do nothing. To register an API, you add an APIService object, which `claims` the URL path in the Kubernetes API. At that point, the aggregation layer will proxy anything sent to that API path (e.g. `/apis/myextension.mycompany.io/v1/…`) to the registered APIService.
 
 The most common way to implement the APIService is to run an extension API server in Pod(s) that run in your cluster. If you're using the extension API server to manage resources in your cluster, the extension API server (also written as `extension-apiserver`) is typically paired with one or more controllers. The `apiserver-builder` library provides a skeleton for both extension API servers and the associated controller(s).
+
+## Security
+
+---
+
+For more information on Kubernetes Security see [this module notebook](../k8s-security/notebook.md).
+
+To perform any action in a Kubernetes cluster, you need to access the API and go through three main steps:
+- Authentication (token)
+- Authorization (RBAC)
+- Admission Controllers
+
+![Accessing API](resources/img/accessing_api.png)
+
+Once a request reaches the API server securely, it will first go through any authentication module that has been configured. The request can be rejected if authentication fails, or it gets authenticated and passed to the authorization step.
+
+At the authorization step, the request will be checked against existing policies. It will be authorized if the user has the permissions to perform the requested actions. Then, the requests will go through the last step of admission. In general, admission controllers will check the actual content of the objects being created and validate them before admitting the request.
+
+### Authentication
+
+Main point of Kubernetes authentication:
+- In its straightforward form, authentication is done with certificates, tokens or basic authentication (i.e. username and password).
+- Users are not created by the API, but should be managed by an external system.
+- System accounts are used by processes to access the API.
+
+There are two more advanced authentication mechanisms. Webhooks can be used to verify bearer tokens, and connection with an external OpenID provider.
+
+The type of authentication used is defined in the `kube-apiserver` startup options. Below are four examples of a subset of configuration options that would need to be set depending on what choice of authentication mechanism you choose:
+```
+--basic-auth-file
+--oidc-issuer-url
+--token-auth-file
+--authorization-webhook-config-file
+```
+
+### Authorization
+
+There are two main authorization modes and two global Deny/Allow settings. The main modes are:
+- Role based access control (RBAC)
+- Webhook
+
+They can be configured as `kube-apiserver` startup options:
+```
+--authorization-mode=RBAC
+--authorization-mode=Webhook
+--authorization-mode=AlwaysDeny
+--authorization-mode=AlwaysAllow
+```
+
+#### RBAC
+
+All resources are modeled API objects in Kubernetes, from Pods to Namespaces. They also belong to API Groups, such as `core` and `apps`.These resources allow operations such as Create, Read, Update, and Delete (CRUD), which we have been working with so far. Operations are called `verbs` inside YAML files. Adding to these basic components, we will add more elements of the API, which can then be managed via RBAC.
+
+Rules are operations which can act upon an API group. Roles are a group of rules which affect, or scope, a single namespace, whereas `ClusterRoles` have a scope of the entire cluster.
+
+Each operation can act upon one of three subjects, which are `User Accounts` which don't exist as API objects, `Service Accounts`, and `Groups` which are known as `clusterrolebinding` when using kubectl.
+
+RBAC is then writing rules to allow or deny operations by users, roles or groups upon resources.
+
+While RBAC can be complex, the basic flow is to create a certificate for a user. As a user is not an API object of Kubernetes, we are requiring outside authentication, such as OpenSSL certificates. After generating the certificate against the cluster certificate authority, we can set that credential for the user using a context.
+
+Roles can then be used to configure an association of `apiGroups`, `resources`, and the `verbs` allowed to them. The user can then be bound to a role limiting what and where they can work in the cluster.
+
+Here is a summary of the RBAC process:
+1. Determine or create namespace
+2. Create certificate credentials for user
+3. Set the credentials for the user to the namespace using a context
+4. Create a role for the expected task set
+5. Bind the user to the role
+6. Verify the user has limited access.
+
+#### Webhook
+
+A Webhook is an HTTP callback, an HTTP POST that occurs when something happens; a simple event-notification via HTTP POST. A web application implementing Webhooks will POST a message to a URL when certain things happen.
+
+### Admission Control
+
+The last step in letting an API request into Kubernetes is admission control.
+
+Admission controllers are pieces of software that can access the content of the objects being created by the requests. They can modify the content or validate it, and potentially deny the request.
+
+To enable or disable, you can pass the following options, changing out the plugins you want to enable or disable:
+```
+--enable-admission-plugins=Initializers,NamespaceLifecycle,LimitRanger
+--disable-admission-plugins=PodNodeSelector
+```
+
+The first controller is `Initializers` which will allow the dynamic modification of the API request, providing great flexibility. Each admission controller functionality is explained in the documentation. For example, the `ResourceQuota` controller will ensure that the object created does not violate any of the existing quotas.
+
+### Security Context
+
+A security context defines privilege and access control settings for a Pod or Container. Security context settings include, but are not limited to:
+
+- Discretionary Access Control: Permission to access an object, like a file, is based on user ID (UID) and group ID (GID).
+- Security Enhanced Linux (SELinux): Objects are assigned security labels.
+- Running as privileged or unprivileged.
+- Linux Capabilities: Give a process some privileges, but not all the privileges of the root user. 
+- AppArmor: Use program profiles to restrict the capabilities of individual programs.
+- Seccomp: Filter a process's system calls.
+- `allowPrivilegeEscalation`: Controls whether a process can gain more privileges than its parent process. This bool directly controls whether the `no_new_privs` flag gets set on the container process. `allowPrivilegeEscalation` is always true when the container:
+  - is run as privileged, or
+  - has `CAP_SYS_ADMIN`
+- `readOnlyRootFilesystem`: Mounts the container's root filesystem as read-only.
+
+**Note:** That above-mentioned security context list is not a complete set.
+
