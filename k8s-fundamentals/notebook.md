@@ -13,6 +13,7 @@
 - **[Helm](#helm)**
 - **[Ingress](#ingress)**
 - **[Scheduling](#scheduling)**
+- **[Logging and Troubleshooting](#logging-and-troubleshooting)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -442,3 +443,58 @@ Ways to schedule a pod:
 Setting tolerations on a node are used to schedule Pods on tainted nodes. This provides an easy way to avoid Pods using the node. Only those with a particular toleration would be scheduled.
 
 An operator can be included in a Pod specification, defaulting to `Equal` if not declared. The use of the operator `Equal` requires a value to match. The `Exists` operator should not be specified. If an empty key uses the `Exists` operator, it will tolerate every taint. If there is no effect, but a key and operator are declared, all effects are matched with the declared key.
+
+## Logging and Troubleshooting
+
+---
+
+### Basics
+
+The troubleshooting flow should start with the obvious. If there are errors from the command line, investigate them first. The symptoms of the issue will probably determine the next step to check. Working from the application running inside a container to the cluster as a whole may be a good idea. The application may have a shell you can use. For example, see the following commands: 
+
+```bash
+# create and deploy busybox container
+$> kubectl create deploy busybox --image=busybox --command sleep 3600
+# login into container
+$> kubectl exec -ti <busybox_pod> -- /bin/sh
+```
+
+If the Pod is running, use kubectl logs pod-name to view the standard out of the container. Without logs, you may consider deploying a sidecar container in the Pod to generate and handle logging. The next place to check is networking, including DNS, firewalls and general connectivity, using standard Linux commands and tools.
+
+Security settings can also be a challenge. RBAC, covered in the security chapter, provides mandatory or discretionary access control in a granular manner. SELinux and AppArmor are also common issues, especially with network-centric applications.
+
+### Cluster start sequence
+
+The cluster startup sequence begins with systemd if you built the cluster using `kubeadm`. Other tools may leverage a different method. Use systemctl status `kubelet.service` to see the current state and configuration files used to run the kubelet binary.
+- Uses `/etc/systemd/system/kubelet.service.d/10-kubeadm.conf` file
+
+Inside the `config.yaml` file you will find several settings for the binary, including the `staticPodPath` which indicates the directory where kubelet will read every yaml file and start every pod. If you put a yaml file in this directory, it is a way to troubleshoot the scheduler, as the pod is created with any requests to the scheduler.
+- Uses `/var/lib/kubelet/config.yaml` configuration file.
+- `staticPodPath` is set to `/etc/kubernetes/manifests/`.
+
+The four default yaml files will start the base pods necessary to run the cluster:
+- kubelet creates all pods from `*.yaml` in directory: `kube-apiserver`, `etcd`, `kube-controller-manager`, `kube-scheduler`.
+
+Once the watch loops and controllers from `kube-controller-manager` run using etcd data, the rest of the configured objects will be created.
+
+### Plugins
+
+Kubernetes allows you to install necessary plugins for `kubectl` command with `krew`. Installed plugins can then be run as a sub-command for `kubectl`.
+
+```bash
+$> export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+# list available plugins
+$> kubectl krew search
+# install a plugin
+$> kubectl krew install sniff
+```
+
+### Network Sniffing
+
+Cluster network traffic is encrypted making troubleshooting of possible network issues more complex. Using the sniff plugin you can view the traffic from within. `sniff` requires Wireshark and ability to export graphical display.
+
+The `sniff` command will use the first found container unless you pass the `-c` option to declare which container in the pod to use for traffic monitoring.
+
+```bash
+$> kubectl krew install sniff nginx-123456-abcd -c webcont
+```
