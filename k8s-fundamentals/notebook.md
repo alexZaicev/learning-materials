@@ -16,6 +16,7 @@
 - **[Logging and Troubleshooting](#logging-and-troubleshooting)**
 - **[Custom Resource Definition](#custom-resource-definition)**
 - **[Security](#security)**
+- **[High Availability](#high-availability)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -653,4 +654,3 @@ A security context defines privilege and access control settings for a Pod or Co
 - `readOnlyRootFilesystem`: Mounts the container's root filesystem as read-only.
 
 **Note:** That above-mentioned security context list is not a complete set.
-
