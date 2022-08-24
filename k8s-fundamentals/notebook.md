@@ -14,6 +14,7 @@
 - **[Ingress](#ingress)**
 - **[Scheduling](#scheduling)**
 - **[Logging and Troubleshooting](#logging-and-troubleshooting)**
+- **[Custom Resource Definition](#custom-resource-definition)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -498,3 +499,51 @@ The `sniff` command will use the first found container unless you pass the `-c` 
 ```bash
 $> kubectl krew install sniff nginx-123456-abcd -c webcont
 ```
+
+## Custom Resource Definition
+
+---
+
+A custom resource is an extension of the Kubernetes API that is not necessarily available in a default Kubernetes installation. It represents a customization of a particular Kubernetes installation. However, many core Kubernetes functions are now built using custom resources, making Kubernetes more modular.
+
+Custom resources can appear and disappear in a running cluster through dynamic registration, and cluster admins can update custom resources independently of the cluster itself. Once a custom resource is installed, users can create and access its objects using `kubectl`, just as they do for built-in resources like Pods.
+
+The below Yaml specification creates a CRD for custom backup.
+```yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: backups.stable.linux.com
+spec:
+  group: stable.linux.com
+  version: v1
+  scope: Namespaced
+  names:
+    plural: backups
+    singular: backup
+    shortNames:
+    - bks
+    kind: BackUp
+```
+
+The below Yaml specification creates an object based on the above CRD.
+```yaml
+apiVersion: "stable.linux.com/v1"
+kind: BackUp
+metadata:
+  name: a-backup-object
+spec:
+  timeSpec: "* * * * */5"
+  image: linux-backup-image
+replicas: 5
+```
+
+### Aggregation Layer
+
+The aggregation layer allows Kubernetes to be extended with additional APIs, beyond what is offered by the core Kubernetes APIs. The additional APIs can either be ready-made solutions such as a metrics server, or APIs that you develop yourself.
+
+The aggregation layer is different from Custom Resources, which are a way to make the `kube-apiserver `recognise new kinds of object.
+
+The aggregation layer runs in-process with the `kube-apiserver`. Until an extension resource is registered, the aggregation layer will do nothing. To register an API, you add an APIService object, which `claims` the URL path in the Kubernetes API. At that point, the aggregation layer will proxy anything sent to that API path (e.g. `/apis/myextension.mycompany.io/v1/…`) to the registered APIService.
+
+The most common way to implement the APIService is to run an extension API server in Pod(s) that run in your cluster. If you're using the extension API server to manage resources in your cluster, the extension API server (also written as `extension-apiserver`) is typically paired with one or more controllers. The `apiserver-builder` library provides a skeleton for both extension API servers and the associated controller(s).
