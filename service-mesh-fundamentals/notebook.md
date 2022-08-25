@@ -1,7 +1,5 @@
 # Service mesh fundamentals (LFS243)
 
----
-
 ## Table of contents:
 
 - **[Cloud-Native Apps](#cloud-native-apps)**
@@ -9,8 +7,6 @@
 - **[Service Mesh Data Planes and Control Planes](#service-mesh-data-planes-and-control-planes)**
 
 ## Cloud-Native Apps
-
---- 
 
 The cloud-native app architecture evolved in response to many of the common bottlenecks that slow down the development and release of monolithic applications, namely avoiding code “merge hell” that follows from a large number of engineers working around a single codebase, enabling independent release of individual services, and providing a limited area to investigate—a blast radius—when a component does fail. The cloud-native approach enables development and operational staff to rapidly make localized decisions related to their defined responsibilities and carry those decisions out.
 
@@ -25,8 +21,6 @@ The below figure shows three diagrams, where (1) pie - is a monolithic, single-s
 ![Cloud-native app architecture](resources/img/cloud_native_app_architecture.png)
 
 ## Resilience for Distributed Systems
-
----
 
 In the context of a distributed system, resilience is about the distributed system being capable of automatically adapting when adverse situations occur in order to continue to serve its purpose.
 
@@ -107,8 +101,6 @@ Cascading failures often start because of automatic retries directed at microser
 But if a circuit breaker doesn’t act and new requests keep going to the instance, that instance may completely fail. That forces all the requests to go to other instances. If those instances were already near capacity, the new requests may overwhelm them too and eventually cause them to fail. This cycle continues and eventually the entire distributed system fails.
 
 ## Service Mesh Data Planes and Control Planes
-
----
 
 ### Data Plane
 

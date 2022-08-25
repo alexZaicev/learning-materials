@@ -1,7 +1,5 @@
 # Kubernetes fundamentals (LFS258)
 
----
-
 ## Table of contents:
 
 - **[Basics of K8s](#basics-of-k8s)**
@@ -20,8 +18,6 @@
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
 ## Basics of K8s
-
----
 
 ### Architecture
 
@@ -85,8 +81,6 @@ The endpoint is created at the same time as the service. Note that it uses the p
 
 ## Simple Pod
 
----
-
 The bellow YAML file contains specifications for simple pod that will be deployed in your K8s cluster. Create a new file `simple-pod.yaml` and copy the content bellow.
 ```yaml
 apiVersion: v1
@@ -111,9 +105,7 @@ $> kubectl get pod simple-pod -o yaml
 $> kubectl delete pod simple-pod
 ```
 
-## APIs and Access 
-
----
+## APIs and Access
 
 Kunernetes entire architecture is build with powerful REST-based APIs, e.g. `kubectl` make API calls on your behalf (`kubectl` can be replaced with standard cURL or 3rd party program to interact with K8s).
 
@@ -145,8 +137,6 @@ There are currently three APIs which can be applied to set who and what can be q
 
 ## Managing state with deployment
 
----
-
 ![Nested objects](resources/img/nested_objects.png)
 
 The graphic in the upper left represents a container running nginx 1.11. Kubernetes does not directly manage the container. Instead, the kubelet daemon checks the pod specifications by asking the container engine, which could be Docker or cri-o, for the current status. The graphic to the right of the container shows a pod which represents a watch loop checking the container status. kubelet compares the current pod spec against what the container engine replies and will terminate and restart the pod if necessary.
@@ -158,8 +148,6 @@ On the lower left we see a replicaSet. This controller will ensure you have a ce
 The graphic in the lower right shows a deployment. This controller allows us to manage the versions of images deployed in the pods. Should an edit be made to the deployment, a new replicaSet is created, which will deploy pods using the new podSpec. The deployment will then direct the old replicaSet to shut down pods as the new replicaSet pods become available. Once the old pods are all terminated, the deployment terminates the old replicaSet and the deployment returns to having only one replicaSet running.
 
 ## Volumes and Data
-
----
 
 The below Yaml specification will create a Pod with a single container with a volume named `scratch-volume` of storage type `emptyDir`. The kubelet will create the directory in the container, but not mount any storage. Any data created is written to the shared container space. As a result, it would not be persistent storage. When the Pod is destroyed, the directory would be deleted along with the container. 
 ```yaml
@@ -272,8 +260,6 @@ spec:
 
 ## Services
 
----
-
 ### Types
 
 - `ClusterIP` - is the default, and only provides access internally (except if manually creating an external endpoint). The range of ClusterIP used is defined via an API server startup option.
@@ -298,8 +284,6 @@ This graphic shows a pod with a primary container, App, with an optional sidecar
 The use of `CoreDNS` allows for a great amount of flexibility. Once the container starts, it will run a Server for the zones it has been configured to serve. Then, each server can load one or more plugin chains to provide other functionality. As with other microservices, clients would it access using a service, `kube-dns`.
 
 ## Helm
-
----
 
 Helm helps to manage Kubernetes application via Helm charts that are used to define, install and upgrade even the most complex application.
 
@@ -349,9 +333,7 @@ data:
 
 For more information on Helm see [this module notebook](../helm/notebook.md).
 
-## Ingress 
-
----
+## Ingress
 
 Ingress exposes HTTP and HTTPS routes from outside the cluster to services within the cluster. Traffic routing is controlled by rules defined on the Ingress resource.
 
@@ -405,8 +387,6 @@ For more information on Service Mesh see [this module notebook](../service-mesh-
 
 ## Scheduling
 
----
-
 A scheduler watches for newly created Pods that have no Node assigned. For every Pod that the scheduler discovers, the scheduler becomes responsible for finding the best Node for that Pod to run on. The scheduler reaches this placement decision taking into account the scheduling principles described below.
 
 The `kube-scheduler` determines which nodes will run a Pod, using a topology-aware algorithm. Users can set the priority of a pod, which will allow preemption of lower priority pods. The eviction of lower priority pods would then allow the higher priority pod to be scheduled. The scheduler tracks the set of nodes in your cluster, filters them based on a set of predicates, then uses priority functions to score or determine on which node each Pod should be scheduled. The Pod specification as part of a request is sent to the kubelet on the node for creation.
@@ -447,8 +427,6 @@ Setting tolerations on a node are used to schedule Pods on tainted nodes. This p
 An operator can be included in a Pod specification, defaulting to `Equal` if not declared. The use of the operator `Equal` requires a value to match. The `Exists` operator should not be specified. If an empty key uses the `Exists` operator, it will tolerate every taint. If there is no effect, but a key and operator are declared, all effects are matched with the declared key.
 
 ## Logging and Troubleshooting
-
----
 
 ### Basics
 
@@ -503,8 +481,6 @@ $> kubectl krew install sniff nginx-123456-abcd -c webcont
 
 ## Custom Resource Definition
 
----
-
 A custom resource is an extension of the Kubernetes API that is not necessarily available in a default Kubernetes installation. It represents a customization of a particular Kubernetes installation. However, many core Kubernetes functions are now built using custom resources, making Kubernetes more modular.
 
 Custom resources can appear and disappear in a running cluster through dynamic registration, and cluster admins can update custom resources independently of the cluster itself. Once a custom resource is installed, users can create and access its objects using `kubectl`, just as they do for built-in resources like Pods.
@@ -550,8 +526,6 @@ The aggregation layer runs in-process with the `kube-apiserver`. Until an extens
 The most common way to implement the APIService is to run an extension API server in Pod(s) that run in your cluster. If you're using the extension API server to manage resources in your cluster, the extension API server (also written as `extension-apiserver`) is typically paired with one or more controllers. The `apiserver-builder` library provides a skeleton for both extension API servers and the associated controller(s).
 
 ## Security
-
----
 
 For more information on Kubernetes Security see [this module notebook](../k8s-security/notebook.md).
 
