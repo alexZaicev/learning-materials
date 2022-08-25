@@ -16,7 +16,6 @@
 - **[Logging and Troubleshooting](#logging-and-troubleshooting)**
 - **[Custom Resource Definition](#custom-resource-definition)**
 - **[Security](#security)**
-- **[High Availability](#high-availability)**
 
 For information on how to configure your machine to follow along this guide please see the [Installation Guide](installation_guide.md).
 
@@ -402,7 +401,7 @@ A service mesh consists of edge and embedded proxies communicating with each oth
 - `Istio` - is a powerful tool set which leverages Envoy proxies via a multi-component control plane. It is built to be platform-independent, and it can be used to make the service mesh flexible and feature-filled.
 - `linkerd` is another service mesh, purposely built to be easy to deploy, fast, and ultralight.
 
-For more information on Service Mesh see [this module notebook](../service-mesh/notebook.md).
+For more information on Service Mesh see [this module notebook](../service-mesh-fundamentals/notebook.md).
 
 ## Scheduling
 
@@ -633,6 +632,7 @@ Admission controllers are pieces of software that can access the content of the 
 To enable or disable, you can pass the following options, changing out the plugins you want to enable or disable:
 ```
 --enable-admission-plugins=Initializers,NamespaceLifecycle,LimitRanger
+--disable-admission-plugins=PodNodeSelector
 --disable-admission-plugins=PodNodeSelector
 ```
 
