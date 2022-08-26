@@ -5,6 +5,8 @@
 - **[Cloud-Native Apps](#cloud-native-apps)**
 - **[Resilience for Distributed Systems](#resilience-for-distributed-systems)**
 - **[Service Mesh Data Planes and Control Planes](#service-mesh-data-planes-and-control-planes)**
+- **[When do you need a Service Mesh?](#when-do-you-need-a-service-mesh)**
+- **[Service Mesh Interface (SMI)](#service-mesh-interface-smi)**
 
 ## Cloud-Native Apps
 
@@ -177,3 +179,141 @@ Egress, unlike Ingress, handles traffic that is routed from the cluster to an ou
 - In step 1, the microservice would send the request to its service proxy.
 - In step 2, the service proxy would see that the request needed to go outside the cluster, so it would forward it out of the cluster to the external load balancer. The traffic does not go through the Ingress controller — the Ingress controller strictly handles Ingress requests, not egress requests.
 - In step 3, the external load balancer would route the egress request on its path to the destination cluster.
+
+## When do you need a Service Mesh? 
+
+Not every cloud-native app requires a service mesh. Furthermore, in some scenarios service mesh can actually do more harm than good. Below are important factors to consider when deciding whether service mesh is the right solution for your app:
+
+#### The number of microservices
+
+If your app has a small number of microservices, the benefits of using a service mesh will be limited. Say that your app has two microservices. There’s not much a service mesh can do to improve resilience and observability from their existing states.
+
+As the number of microservices in an app increases, the growing complexity of the app makes a service mesh more beneficial for supporting resilience, observability, and security among all the microservices and their interrelationships.
+
+#### The microservice topology
+
+This refers to the flows of the microservices being called and calling each other. In a shallow topology, there’s not much interaction directly between microservices; most requests come from outside the cluster. Service meshes usually don’t provide much value in shallow topologies because their primary purpose is to handle service-to-service requests.
+
+In deeper microservice topologies, with many microservices sending requests to other microservices, which in turn send requests to other microservices, and so on, service meshes can be invaluable in having visibility into these requests, as well as securing the communications and adding resilience features to prevent cascading failures and other issues.
+
+## Service Mesh Interface (SMI)
+
+The goal of the SMI API is to provide a common, portable set of service mesh APIs which a Kubernetes user can use in a provider agnostic manner. In this way people can define applications that use service mesh technology without tightly binding to any specific implementation.”
+
+### Traffic Specs API
+
+The Traffic Specs API allows you to define routes that an app can use. The example bellow illustrates how a resource named `m-routes` can be defined using `HTTPRouteGroup` from the Traffic Specs API. It’s based on an example in the SMI specification. It will match on any HTTP GET request the app sees with the string `/metrics` in its path.
+
+By itself, `HTTPRouteGroup` doesn’t do anything. It matches, but it doesn’t act on the match in any way. It’s meant to be used by other SMI APIs that do act. So, for example, the Traffic Split API could reference this group in one of its own resources, like declaring that traffic matching the `m-routes` definition should be split evenly between two versions of a particular microservice.
+
+```yaml
+kind: HTTPRouteGroup
+metadata:
+  name: m-routes
+spec:
+  matches:
+  - name: metrics
+    pathRegex: "/metrics"
+    methods:
+    - GET
+```
+
+### Traffic Split API
+
+The Traffic Split API allows you to implement traffic splitting and traffic shifting methods like A/B testing, blue-green deployment, and canary deployment.
+
+The below Yaml specification, is an example of 2 services `e8-widget-svc-current` and `e8-widget-svc-patch` that share a weight ratio 3:1 (defined in percentage 75% and 25%). Over time, to continue canary deployment, weight would shift from `e8-widget-svc-current` to `e8-widget-svc-patch` until it hits 100%.
+
+```yaml
+kind: TrafficSplit
+metadata:
+  name: e8-feature-test
+  namespace: e8app
+spec:
+  service: e8-widget-svc
+  backends:
+  - service: e8-widget-svc-current
+    weight: 75
+  - service: e8-widget-svc-patch
+    weight: 25
+```
+
+The above example, can be extended to include more versions of the same microservice, allowing the development team to test multiple features by shifting weight ratios.
+
+### Traffic Access Control API
+
+The Traffic Access Control API allows you to set access control policies for pod-to-pod (service proxy to service proxy) communications based on service proxy identity. When using Traffic Access Control API, by default all traffic is denied.
+
+The `TrafficTarget` object uses three configuration options to grant traffic access:
+- `sources` - specifies the pods that may be allowed as sources of the traffic
+- `destination` - specified the pods that may be allowed as destination of the traffic
+- `rules` - specified the characteristics that traffic should have to be allowed
+
+The below Yaml specification defines rules for traffic being allowed from pods with `prometheus` service account to pods with `service-a` service account, when the traffic is being sent to port `8080`. The traffic is only allowed, when it matches the rules specified that in this case request should be HTTP GET on `/metrics` URL.
+
+```yaml
+kind: TrafficTarget
+metadata:
+  name: path-specific
+  namespace: default
+spec:
+  destination:
+    kind: ServiceAccount
+    name: service-a
+    namespace: default
+    port: 8080
+  rules:
+  - kind: HTTPRouteGroup
+    name: m-routes
+    matches:
+    - metrics
+  sources:
+  - kind: ServiceAccount
+  name: prometheus
+  namespace: default
+```
+
+### Traffic Metrics API
+
+The Traffic Metrics API allows you to collect metrics on HTTP traffic and make those metrics available to other tools. Each metric involves a Kubernetes resource, either a lower-level one like a pod or a service, or a higher-level one like a namespace. Each metric is also limited to a particular edge, which is another term for the traffic’s source or destination. 
+
+**Note:** An edge can be set as blank, which would match all traffic.
+
+The `TrafficMetrics` object uses several configuration options:
+- `resource` which specifies the source of the traffic to collect the metrics for.
+- `edge`, which specifies the destination of the traffic to collect the metrics for.
+- `timestamp`, which specifies when the definition was created.
+- `window`, which specifies the time period to be used for calculating the metrics. In this example, 30 seconds is specified, so metrics will be calculated on the past 30 seconds of activity.
+- `metrics`, which list the metrics to be collected. In this example, the metrics will include data on response latency and on successful and failed requests.
+
+```yaml
+kind: TrafficMetrics
+# See ObjectReference v1 core for full spec
+resource:
+  name: foo-775b9cbd88-ntxsl
+  namespace: foobar
+  kind: Pod
+edge:
+  direction: to
+  side: client
+  resource:
+    name: baz-577db7d977-lsk2q
+    namespace: foobar
+    kind: Pod
+timestamp: 2019-04-08T22:25:55Z
+window: 30s
+metrics:
+- name: p99_response_latency
+  unit: seconds
+  value: 10m
+- name: p90_response_latency
+  unit: seconds
+  value: 10m
+- name: p50_response_latency
+  unit: seconds
+  value: 10m
+- name: success_count
+  value: 100
+- name: failure_count
+  value: 100
+```
