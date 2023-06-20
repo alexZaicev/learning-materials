@@ -16,3 +16,4 @@ Repository containing personal notes on various courses and exam preparations.
   - **[Message Queues](./interviews/message_queues.md)**
   - **[Networking](./interviews/networking.md)**
   - **[Security](./interviews/security.md)**
+  - **[Spring Framework](./interviews/spring_framework.md)**
